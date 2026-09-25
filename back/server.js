@@ -108,6 +108,28 @@ function findProductByAnyCode(codigoInformado) {
   }) || null;
 }
 
+function findProductByNameAndBrand(nomeProduto, marcaProduto) {
+  const nome = String(nomeProduto || '').trim().toLowerCase();
+  const marca = String(marcaProduto || '').trim().toLowerCase();
+  if (!nome && !marca) return null;
+
+  const produtos = Array.isArray(db.data && db.data.products) ? db.data.products : [];
+  return produtos.find((produto) => {
+    const nomeProdutoAtual = String(produto && produto.nome ? produto.nome : '').trim().toLowerCase();
+    const marcaProdutoAtual = String(produto && produto.marca ? produto.marca : '').trim().toLowerCase();
+
+    if (nome && marca) {
+      return nomeProdutoAtual.includes(nome) && marcaProdutoAtual.includes(marca);
+    }
+
+    if (nome) {
+      return nomeProdutoAtual.includes(nome);
+    }
+
+    return marcaProdutoAtual.includes(marca);
+  }) || null;
+}
+
 function isAdminUser(user) {
   return user && (user.perfil || 'operador') === 'admin' && user.ativo !== false;
 }
@@ -1204,6 +1226,12 @@ app.get('/api/product-image', requireLogin, async (req, res) => {
     if (produtoLocal) {
       nomeBusca = String(produtoLocal.nome || '').trim();
       marcaBusca = String(produtoLocal.marca || '').trim();
+      if (produtoLocal.imagemUrl) {
+        const validacaoLocal = validateExternalImageUrl(produtoLocal.imagemUrl);
+        if (!validacaoLocal.error) {
+          return res.json({ imageUrl: `/api/image-proxy?url=${encodeURIComponent(produtoLocal.imagemUrl)}`, originalUrl: produtoLocal.imagemUrl, source: 'produto-salvo' });
+        }
+      }
     }
   }
 
@@ -1347,6 +1375,12 @@ app.get('/api/product-image-options', requireLogin, async (req, res) => {
       if (!marcaBusca) marcaBusca = String(produtoLocal.marca || '').trim();
       if (!saborBusca) saborBusca = String(produtoLocal.sabor || '').trim();
       if (!categoriaBusca) categoriaBusca = String(produtoLocal.categoria || '').trim();
+      if (produtoLocal.imagemUrl) {
+        const validacaoLocal = validateExternalImageUrl(produtoLocal.imagemUrl);
+        if (!validacaoLocal.error) {
+          adicionarOpcao(produtoLocal.imagemUrl, 'produto-salvo');
+        }
+      }
     }
   }
 
