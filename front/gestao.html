@@ -2135,10 +2135,10 @@
             const categoria = String(document.getElementById('produtoCategoria')?.value || '').trim();
             const sabor = extrairSaborAproximado(nome, marca);
             const codigoValido = String(codigoBarras).replace(/\D/g, '').length >= 8;
-            const nomeMarcaValidos = Boolean(nome && marca);
+            const temDadosProduto = Boolean(nome || marca || categoria || codigoBarras);
 
-            if (!codigoValido && !nomeMarcaValidos) {
-                mostrarAlerta('Para gerar imagem, informe codigo de barras valido ou preencha nome e marca', 'erro');
+            if (!codigoValido && !temDadosProduto) {
+                mostrarAlerta('Para gerar imagem, informe codigo de barras, nome, marca ou categoria do produto', 'erro');
                 return;
             }
 
