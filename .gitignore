@@ -1,6 +1,6 @@
-node_modules/
+﻿node_modules/
 .env
 *.log
 Git/
-db.json
-backups/
+back/db.json
+back/backups/

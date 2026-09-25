@@ -1,0 +1,144 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: "Manrope", "Segoe UI", Tahoma, sans-serif;
+  min-height: 100vh;
+  background: radial-gradient(circle at 10% 10%, #f9fff2 0%, #eef5ff 45%, #f5f7fa 100%);
+  color: #183047;
+  padding: 24px;
+}
+
+.wrap {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.hero {
+  background: linear-gradient(135deg, #163a23 0%, #1f5d34 45%, #2d6a3f 100%);
+  color: #ffffff;
+  border-radius: 18px;
+  padding: 26px;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.18);
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  margin-bottom: 18px;
+}
+
+.hero h1 {
+  font-size: 2rem;
+  margin-bottom: 8px;
+  font-weight: 800;
+}
+
+.hero p {
+  opacity: 0.95;
+  line-height: 1.45;
+}
+
+.badge {
+  display: inline-block;
+  margin-top: 12px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.hub-intro {
+  margin: 18px 0 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #dce6f2;
+  color: #35556f;
+  font-size: 0.95rem;
+  box-shadow: 0 6px 14px rgba(35, 59, 86, 0.06);
+}
+
+.sections {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.card {
+  background: #ffffff;
+  border: 1px solid #dce6f2;
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 8px 20px rgba(35, 59, 86, 0.08);
+}
+
+.card h2 {
+  font-size: 1.15rem;
+  margin-bottom: 10px;
+  color: #163a23;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tab-list {
+  display: grid;
+  gap: 10px;
+}
+
+.tab-row {
+  background: #f6f9fd;
+  border: 1px solid #e5edf7;
+  border-radius: 11px;
+  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.tab-info strong {
+  display: block;
+  color: #1e3e5b;
+  margin-bottom: 4px;
+}
+
+.tab-info span {
+  font-size: 0.93rem;
+  color: #385872;
+  line-height: 1.35;
+}
+
+.tab-go {
+  white-space: nowrap;
+  background: #ffffff;
+  color: #1b4769;
+  border: 1px solid #cad8e8;
+  border-radius: 8px;
+  text-decoration: none;
+  padding: 8px 12px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tab-go:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(30, 64, 95, 0.12);
+}
+
+.foot {
+  margin-top: 14px;
+  font-size: 0.9rem;
+  color: #4e6479;
+}
+
+.build {
+  margin-top: 8px;
+  font-size: 0.82rem;
+  color: #5b7086;
+}
+
+@media (max-width: 900px) {
+  body { padding: 14px; }
+  .sections { grid-template-columns: 1fr; }
+  .hero h1 { font-size: 1.6rem; }
+}
