@@ -1872,6 +1872,10 @@ app.use((error, req, res, next) => {
   if (req.path.startsWith('/api/')) {
     return res.status(500).json({ error: 'Erro interno do servidor' });
   }
+  // Evita loop de redirecionamento quando o próprio /login.html falha.
+  if (req.path === '/login.html') {
+    return res.status(500).send('Erro interno do servidor. Tente novamente em instantes.');
+  }
   return res.redirect('/login.html');
 });
 
