@@ -459,6 +459,10 @@ if (DATABASE_URL) {
       connectionString: DATABASE_URL,
       ssl: getPgSslConfig(),
     });
+    // Sem este listener, um erro em uma conexão ociosa derruba o processo Node inteiro.
+    pgPool.on('error', (error) => {
+      console.error('Erro inesperado no pool do PostgreSQL:', error.message);
+    });
   } catch (error) {
     pgPool = null;
     console.error('DATABASE_URL inválida. Inicializando sem PostgreSQL:', error.message);
@@ -1247,19 +1251,28 @@ app.get('/api/product-image', requireLogin, async (req, res) => {
     const consulta = String(termo || '').trim();
     if (!consulta) return '';
 
-    const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(`${consulta} produto embalagem`)}&gsrlimit=5&prop=imageinfo&iiprop=url|mime&format=json`;
-    const resposta = await fetch(url, { signal: AbortSignal.timeout(4500) });
-    if (!resposta.ok) return '';
+    const consultas = [
+      `${consulta} produto embalagem`,
+      `${consulta} produto`,
+      `${consulta} embalagem`,
+      `${consulta} marca`,
+      `${consulta}`,
+    ].filter((item, index, lista) => item && lista.indexOf(item) === index);
 
-    const dados = await resposta.json();
-    const pages = dados && dados.query && dados.query.pages ? Object.values(dados.query.pages) : [];
-    if (!pages.length) return '';
+    for (const termoBusca of consultas) {
+      const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(termoBusca)}&gsrlimit=10&prop=imageinfo&iiprop=url|mime&format=json`;
+      const resposta = await fetch(url, { signal: AbortSignal.timeout(4500) });
+      if (!resposta.ok) continue;
 
-    for (const page of pages) {
-      const info = Array.isArray(page.imageinfo) ? page.imageinfo[0] : null;
-      const mime = String(info && info.mime ? info.mime : '').toLowerCase();
-      if (info && info.url && mime.startsWith('image/')) {
-        return String(info.url);
+      const dados = await resposta.json();
+      const pages = dados && dados.query && dados.query.pages ? Object.values(dados.query.pages) : [];
+      for (const page of pages) {
+        const info = Array.isArray(page.imageinfo) ? page.imageinfo[0] : null;
+        const mime = String(info && info.mime ? info.mime : '').toLowerCase();
+        const imageUrl = String(info && info.url ? info.url : '').trim();
+        if (imageUrl && mime.startsWith('image/') && !/\.(pdf|pdf\?|svg\?|svg$)/i.test(imageUrl)) {
+          return imageUrl;
+        }
       }
     }
 
@@ -1468,21 +1481,27 @@ app.get('/api/product-image-options', requireLogin, async (req, res) => {
     const saborHits = contar(saborTokens);
     const categoriaHits = contar(categoriaTokens);
 
-    // Regra anti-aleatorio: se informou nome/marca, ao menos 1 token de cada deve aparecer.
-    if (exigeNomeEMarca && nomeTokens.length > 0 && nomeHits === 0) return -1;
-    if ((exigeNomeEMarca || exigeMarcaESabor) && marcaTokens.length > 0 && marcaHits === 0) return -1;
+    if (codigo && texto.includes(codigo)) {
+      return 12;
+    }
 
-    // Modo estrito: quando nome e marca forem informados, ambos precisam bater no mesmo resultado.
+    // Regras anti-aleatorio: só bloqueiam quando há nome+marca ou marca+sabor com dados claros.
+    if (exigeNomeEMarca && nomeTokens.length > 0 && nomeHits === 0 && marcaHits === 0) return -1;
+    if ((exigeNomeEMarca || exigeMarcaESabor) && marcaTokens.length > 0 && marcaHits === 0) return -1;
     if (exigeNomeEMarca && (nomeHits === 0 || marcaHits === 0)) return -1;
     if (exigeMarcaESabor && (marcaHits === 0 || saborHits === 0)) return -1;
 
     let score = 0;
-    score += nomeHits * 6;
-    score += marcaHits * 8;
-    score += saborHits * 9;
-    score += categoriaHits * 4;
+    score += nomeHits * 2;
+    score += marcaHits * 3;
+    score += saborHits * 3;
+    score += categoriaHits * 2;
 
-    if (codigo && texto.includes(codigo)) score += 10;
+    if (nomeTokens.length > 0 && nomeHits > 0) score += 2;
+    if (marcaTokens.length > 0 && marcaHits > 0) score += 2;
+    if (saborTokens.length > 0 && saborHits > 0) score += 2;
+    if (categoriaTokens.length > 0 && categoriaHits > 0) score += 1;
+
     return score;
   }
 
@@ -1528,7 +1547,7 @@ app.get('/api/product-image-options', requireLogin, async (req, res) => {
         if (!murl) continue;
 
         const score = pontuarRelevancia(`${texto} ${murl}`);
-        const scoreMinimo = exigeNomeEMarca ? 12 : 8;
+        const scoreMinimo = exigeNomeEMarca ? 2 : 1;
         if (score < scoreMinimo) continue;
 
         resultados.push({ url: murl, score });
@@ -1582,7 +1601,7 @@ app.get('/api/product-image-options', requireLogin, async (req, res) => {
         if (/google\.|gstatic\.com|youtube\.com|ytimg\.com/i.test(normalizada)) continue;
 
         const score = pontuarRelevancia(`${consulta} ${normalizada}`);
-        if (score < (codigoValido ? 4 : 6)) continue;
+        if (score < (codigoValido ? 1 : 1)) continue;
 
         vistosGoogle.add(normalizada);
         urls.push({ url: normalizada, score });
@@ -1641,7 +1660,7 @@ app.get('/api/product-image-options', requireLogin, async (req, res) => {
           if (!link || vistosGoogleApi.has(link)) continue;
 
           const score = pontuarRelevancia(`${consulta} ${titulo} ${snippet} ${link}`);
-          if (score < (codigoValido ? 4 : 6)) continue;
+          if (score < (codigoValido ? 1 : 1)) continue;
 
           vistosGoogleApi.add(link);
           resultados.push({ url: link, score });
@@ -1759,8 +1778,8 @@ app.get('/api/product-image-options', requireLogin, async (req, res) => {
           const mime = String(info && info.mime ? info.mime : '').toLowerCase();
           const pageTitle = String(page && page.title ? page.title : '');
           const scoreWiki = pontuarRelevancia(`${pageTitle} ${info && info.url ? info.url : ''}`);
-          const scoreMinimoWiki = (exigeNomeEMarca || exigeMarcaESabor) ? 9 : 5;
-          if (info && info.url && mime.startsWith('image/') && scoreWiki >= scoreMinimoWiki) {
+          const scoreMinimoWiki = (exigeNomeEMarca || exigeMarcaESabor) ? 1 : 1;
+          if (info && info.url && mime.startsWith('image/') && !/\.(pdf|pdf\?|svg\?|svg$)/i.test(info.url) && scoreWiki >= scoreMinimoWiki) {
             adicionarOpcao(info.url, 'wikimedia');
           }
         }

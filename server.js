@@ -426,6 +426,10 @@ if (DATABASE_URL) {
       connectionString: DATABASE_URL,
       ssl: getPgSslConfig(),
     });
+    // Sem este listener, um erro em uma conexão ociosa derruba o processo Node inteiro.
+    pgPool.on('error', (error) => {
+      console.error('Erro inesperado no pool do PostgreSQL:', error.message);
+    });
   } catch (error) {
     pgPool = null;
     console.error('DATABASE_URL inválida. Inicializando sem PostgreSQL:', error.message);
@@ -1861,6 +1865,15 @@ app.get('/', requireLogin, (req, res) => {
 const createProductsRouter = require('./routes/products');
 const productsRouter = createProductsRouter({ db, pgPool, persistDb });
 app.use('/api/products', requireLogin, productsRouter);
+
+// Error handler final: evita tela em branco/500 sem resposta amigável.
+app.use((error, req, res, next) => {
+  console.error('Erro não tratado:', error);
+  if (req.path.startsWith('/api/')) {
+    return res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+  return res.redirect('/login.html');
+});
 
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);

@@ -52,6 +52,10 @@ if (DATABASE_URL) {
       connectionString: DATABASE_URL,
       ssl: getPgSslConfig(),
     });
+    // Sem este listener, um erro em uma conexão ociosa derruba o processo Node inteiro.
+    pgPool.on('error', (error) => {
+      console.error('Erro inesperado no pool do PostgreSQL (products):', error.message);
+    });
   } catch (error) {
     pgPool = null;
     console.error('DATABASE_URL invalida. Rotas de produto continuam com modo local:', error.message);
