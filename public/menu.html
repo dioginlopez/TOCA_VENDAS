@@ -4,22 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cardápio de Produtos</title>
+    <link rel="icon" href="/logo-csspp.png" type="image/png">
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .print-btn { margin-bottom: 20px; }
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f7f2; color: #26372a; }
+        .print-btn { margin-bottom: 20px; padding: 9px 14px; border: 0; border-radius: 6px; background: #1a472a; color: #fff; cursor: pointer; }
         .categoria { margin-top: 30px; }
-        .categoria h2 { border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+        .categoria h2 { color: #1a472a; border-bottom: 3px solid #f39c12; padding-bottom: 5px; }
         .produtos-grid {
             display: flex;
             flex-wrap: wrap;
             gap: 20px;
         }
         .produto-card {
-            border: 1px solid #ddd;
+            border: 1px solid #dce6d8;
             border-radius: 8px;
             padding: 10px;
             width: 200px;
-            box-shadow: 0 2px 6px #eee;
+            box-shadow: 0 2px 6px rgba(26, 71, 42, 0.1);
             background: #fff;
             display: flex;
             flex-direction: column;
@@ -32,7 +33,7 @@
             margin-bottom: 10px;
         }
         .produto-nome { font-weight: bold; margin-bottom: 5px; }
-        .produto-preco { color: #388e3c; font-size: 1.1em; }
+        .produto-preco { color: #1a472a; font-size: 1.1em; font-weight: 700; }
         @media print {
             .print-btn { display: none; }
             body { margin: 0; }

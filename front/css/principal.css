@@ -3,8 +3,8 @@
 body {
   font-family: "Manrope", "Segoe UI", Tahoma, sans-serif;
   min-height: 100vh;
-  background: radial-gradient(circle at 10% 10%, #f9fff2 0%, #eef5ff 45%, #f5f7fa 100%);
-  color: #183047;
+  background: radial-gradient(circle at 10% 10%, #f7faf3 0%, #edf3ea 45%, #f5f7f4 100%);
+  color: #26372a;
   padding: 24px;
 }
 
@@ -50,10 +50,10 @@ body {
   padding: 12px 14px;
   border-radius: 10px;
   background: #ffffff;
-  border: 1px solid #dce6f2;
-  color: #35556f;
+  border: 1px solid #dce6d8;
+  color: #405644;
   font-size: 0.95rem;
-  box-shadow: 0 6px 14px rgba(35, 59, 86, 0.06);
+  box-shadow: 0 6px 14px rgba(35, 59, 36, 0.06);
 }
 
 .sections {
@@ -64,16 +64,16 @@ body {
 
 .card {
   background: #ffffff;
-  border: 1px solid #dce6f2;
+  border: 1px solid #dce6d8;
   border-radius: 14px;
   padding: 16px;
-  box-shadow: 0 8px 20px rgba(35, 59, 86, 0.08);
+  box-shadow: 0 8px 20px rgba(35, 59, 36, 0.08);
 }
 
 .card h2 {
   font-size: 1.15rem;
   margin-bottom: 10px;
-  color: #163a23;
+  color: #1a472a;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -85,8 +85,8 @@ body {
 }
 
 .tab-row {
-  background: #f6f9fd;
-  border: 1px solid #e5edf7;
+  background: #f5f8f2;
+  border: 1px solid #e1e9dc;
   border-radius: 11px;
   padding: 12px;
   display: flex;
@@ -97,21 +97,21 @@ body {
 
 .tab-info strong {
   display: block;
-  color: #1e3e5b;
+  color: #2a4731;
   margin-bottom: 4px;
 }
 
 .tab-info span {
   font-size: 0.93rem;
-  color: #385872;
+  color: #4a5e4d;
   line-height: 1.35;
 }
 
 .tab-go {
   white-space: nowrap;
   background: #ffffff;
-  color: #1b4769;
-  border: 1px solid #cad8e8;
+  color: #1a472a;
+  border: 1px solid #cbd9c7;
   border-radius: 8px;
   text-decoration: none;
   padding: 8px 12px;
@@ -122,19 +122,19 @@ body {
 
 .tab-go:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 14px rgba(30, 64, 95, 0.12);
+  box-shadow: 0 6px 14px rgba(30, 64, 40, 0.12);
 }
 
 .foot {
   margin-top: 14px;
   font-size: 0.9rem;
-  color: #4e6479;
+  color: #536455;
 }
 
 .build {
   margin-top: 8px;
   font-size: 0.82rem;
-  color: #5b7086;
+  color: #657569;
 }
 
 @media (max-width: 900px) {
