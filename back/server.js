@@ -63,8 +63,8 @@ const BOOTSTRAP_ADMIN_NOME = String(process.env.BOOTSTRAP_ADMIN_NOME || 'ADMIN')
 const GOOGLE_CSE_API_KEY = String(process.env.GOOGLE_CSE_API_KEY || process.env.GOOGLE_API_KEY || '').trim();
 const GOOGLE_CSE_CX = String(process.env.GOOGLE_CSE_CX || process.env.GOOGLE_SEARCH_ENGINE_ID || '').trim();
 
-if (isProduction && !DATABASE_URL) {
-  throw new Error('DATABASE_URL é obrigatória em produção. Configure um PostgreSQL no Render.');
+if (isProduction && DATABASE_URL && !/^postgres(?:ql)?:\/\//i.test(DATABASE_URL)) {
+  throw new Error('DATABASE_URL deve ser a URL de conexão PostgreSQL do Render.');
 }
 
 if (isProduction && SESSION_SECRET === 's3cr3t-local') {
@@ -515,16 +515,11 @@ let persistDbChain = Promise.resolve();
 
 async function persistDbNow() {
   ensureDbShape();
-  await db.write();
-  if (!pgPool) {
+  if (pgPool) {
+    await saveStateToPg(db.data);
     return;
   }
-
-  try {
-    await saveStateToPg(db.data);
-  } catch (error) {
-    console.error('Falha ao sincronizar estado no PostgreSQL:', error.message);
-  }
+  await db.write();
 }
 
 function persistDb() {
@@ -598,6 +593,7 @@ const file = resolveWritableDbFile();
 const adapter = new JSONFile(file);
 const db = new Low(adapter, { products: [], users: [], vendas: [], associados: [], vendaCounter: 1, lastSaleId: null });
 const backupDir = resolveWritableBackupDir();
+console.log(`Arquivo de dados JSON: ${file}`);
 
 function resolveWritableBackupDir() {
   const requestedDir = String(process.env.BACKUP_DIR || '').trim();
@@ -772,9 +768,12 @@ app.get('/api/version', (req, res) => {
 
 app.get('/healthz', async (req, res) => {
   if (!pgPool) {
-    return isProduction
-      ? res.status(503).json({ ok: false, error: 'PostgreSQL não configurado' })
-      : res.json({ ok: true, database: 'local' });
+    try {
+      await fs.promises.access(path.dirname(file), fs.constants.W_OK);
+      return res.json({ ok: true, database: 'json' });
+    } catch (error) {
+      return res.status(503).json({ ok: false, error: 'Armazenamento JSON indisponível' });
+    }
   }
 
   try {
@@ -848,24 +847,26 @@ async function requireAdmin(req, res, next) {
 async function ensureDbLoaded() {
   let shouldPersist = false;
 
-  try {
-    await db.read();
-  } catch (error) {
-    console.error('Falha ao ler db.json, recriando base:', error.message);
-    db.data = { products: [], users: [], vendas: [], associados: [], vendaCounter: 1, lastSaleId: null };
-    ensureDbShape();
-    shouldPersist = true;
-  }
-
   if (pgPool) {
-    try {
-      const pgState = await loadStateFromPg();
-      if (pgState && typeof pgState === 'object') {
-        db.data = pgState;
-        shouldPersist = true;
+    const pgState = await loadStateFromPg();
+    if (pgState && typeof pgState === 'object') {
+      db.data = pgState;
+    } else {
+      try {
+        await db.read();
+      } catch (error) {
+        console.error('Falha ao ler o estado legado do arquivo:', error.message);
+        db.data = { products: [], users: [], vendas: [], associados: [], vendaCounter: 1, lastSaleId: null };
       }
+      shouldPersist = true;
+    }
+  } else {
+    try {
+      await db.read();
     } catch (error) {
-      console.error('Falha ao carregar estado do PostgreSQL:', error.message);
+      console.error('Falha ao ler db.json, recriando base:', error.message);
+      db.data = { products: [], users: [], vendas: [], associados: [], vendaCounter: 1, lastSaleId: null };
+      shouldPersist = true;
     }
   }
 

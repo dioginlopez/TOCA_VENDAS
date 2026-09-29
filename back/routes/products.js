@@ -136,6 +136,14 @@ async function syncProductsToPg(products) {
   );
 }
 
+async function persistProducts() {
+  if (pgPool) {
+    await syncProductsToPg(db.data.products);
+    return;
+  }
+  await db.write();
+}
+
 function requireAdmin(req, res, next) {
   const perfil = req.session && req.session.user ? req.session.user.perfil : null;
   if (perfil === 'admin') {
@@ -156,28 +164,36 @@ function requireCsrf(req, res, next) {
 
 // middleware to ensure db loaded
 router.use(async (req, res, next) => {
-  await db.read();
-  db.data ||= { products: [] };
-
-  if (pgPool) {
-    try {
+  try {
+    let stateLoadedFromPg = false;
+    if (pgPool) {
       const remoteState = await pgPool.query('SELECT state FROM app_state WHERE id = 1 LIMIT 1');
       const state = remoteState.rows.length ? remoteState.rows[0].state : null;
-      if (state && typeof state === 'object' && Array.isArray(state.products)) {
-        db.data.products = state.products;
+      if (state && typeof state === 'object') {
+        db.data = state;
+        stateLoadedFromPg = true;
+      } else {
+        await db.read();
       }
-    } catch (error) {
-      console.error('Falha ao ler produtos no PostgreSQL:', error.message);
+    } else {
+      await db.read();
     }
+    db.data ||= { products: [] };
+
+    db.data.products = Array.isArray(db.data.products)
+      ? db.data.products
+        .map((product) => normalizeProductPayload(product, product))
+        .filter((product) => !product.error)
+      : [];
+
+    if (pgPool && !stateLoadedFromPg) {
+      await syncProductsToPg(db.data.products);
+    }
+    return next();
+  } catch (error) {
+    console.error('Falha ao carregar produtos:', error.message);
+    return next(error);
   }
-
-  db.data.products = Array.isArray(db.data.products)
-    ? db.data.products
-      .map((product) => normalizeProductPayload(product, product))
-      .filter((product) => !product.error)
-    : [];
-
-  next();
 });
 
 // list all products
@@ -199,8 +215,7 @@ router.post('/', requireAdmin, requireCsrf, async (req, res) => {
     return res.status(400).json({ error: newProd.error });
   }
   db.data.products.push(newProd);
-  await db.write();
-  await syncProductsToPg(db.data.products);
+  await persistProducts();
   res.status(201).json(newProd);
 });
 
@@ -217,8 +232,7 @@ router.put('/:id', requireAdmin, requireCsrf, async (req, res) => {
     delete prod[key];
   });
   Object.assign(prod, normalized);
-  await db.write();
-  await syncProductsToPg(db.data.products);
+  await persistProducts();
   res.json(prod);
 });
 
@@ -227,8 +241,7 @@ router.delete('/:id', requireAdmin, requireCsrf, async (req, res) => {
   const index = db.data.products.findIndex(p => p.id === req.params.id);
   if (index === -1) return res.status(404).json({ error: 'Product not found' });
   db.data.products.splice(index, 1);
-  await db.write();
-  await syncProductsToPg(db.data.products);
+  await persistProducts();
   res.status(204).end();
 });
 

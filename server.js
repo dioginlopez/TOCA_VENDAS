@@ -46,6 +46,9 @@ const PORT = process.env.PORT || 3000;
 const SESSION_SECRET = process.env.SESSION_SECRET || 's3cr3t-local';
 const isProduction = process.env.NODE_ENV === 'production';
 const DATABASE_URL = String(process.env.DATABASE_URL || '').trim();
+if (isProduction && DATABASE_URL && !/^postgres(?:ql)?:\/\//i.test(DATABASE_URL)) {
+  throw new Error('DATABASE_URL deve ser a URL de conexão PostgreSQL do Render.');
+}
 const APP_COMMIT = String(process.env.RENDER_GIT_COMMIT || process.env.COMMIT_SHA || '').trim() || 'local';
 const APP_VERSION = String(process.env.npm_package_version || '1.0.0').trim();
 const APP_BOOT_TIME = new Date().toISOString();
@@ -482,16 +485,11 @@ let persistDbChain = Promise.resolve();
 
 async function persistDbNow() {
   ensureDbShape();
-  await db.write();
-  if (!pgPool) {
+  if (pgPool) {
+    await saveStateToPg(db.data);
     return;
   }
-
-  try {
-    await saveStateToPg(db.data);
-  } catch (error) {
-    console.error('Falha ao sincronizar estado no PostgreSQL:', error.message);
-  }
+  await db.write();
 }
 
 function persistDb() {
@@ -565,6 +563,7 @@ const file = resolveWritableDbFile();
 const adapter = new JSONFile(file);
 const db = new Low(adapter, { products: [], users: [], vendas: [], associados: [], vendaCounter: 1, lastSaleId: null });
 const backupDir = resolveWritableBackupDir();
+console.log(`Arquivo de dados JSON: ${file}`);
 
 function resolveWritableBackupDir() {
   const requestedDir = String(process.env.BACKUP_DIR || '').trim();
@@ -697,15 +696,16 @@ async function initDB() {
     await ensureDbLoaded();
   } catch (error) {
     console.error('Falha ao inicializar banco de dados:', error.message);
+    if (pgPool || isProduction) {
+      throw error;
+    }
     db.data = { products: [], users: [], vendas: [], associados: [], vendaCounter: 1, lastSaleId: null };
     ensureDbShape();
     await persistDb();
   }
 }
 
-initDB().catch((error) => {
-  console.error('Erro crítico na inicialização do banco:', error.message);
-});
+const dbInitialization = initDB();
 
 app.use(session({
   store: pgPool ? new pgSession({ pool: pgPool, createTableIfMissing: true }) : undefined,
@@ -742,6 +742,25 @@ app.get('/api/version', (req, res) => {
     bootTime: APP_BOOT_TIME,
     env: process.env.NODE_ENV || 'development',
   });
+});
+
+app.get('/healthz', async (req, res) => {
+  if (!pgPool) {
+    try {
+      await fs.promises.access(path.dirname(file), fs.constants.W_OK);
+      return res.json({ ok: true, database: 'json' });
+    } catch (error) {
+      return res.status(503).json({ ok: false, error: 'Armazenamento JSON indisponível' });
+    }
+  }
+
+  try {
+    await pgPool.query('SELECT 1');
+    return res.json({ ok: true, database: 'postgresql' });
+  } catch (error) {
+    console.error('Falha no health check do PostgreSQL:', error.message);
+    return res.status(503).json({ ok: false, error: 'Banco de dados indisponível' });
+  }
 });
 
 // auth middleware
@@ -807,24 +826,26 @@ async function requireAdmin(req, res, next) {
 async function ensureDbLoaded() {
   let shouldPersist = false;
 
-  try {
-    await db.read();
-  } catch (error) {
-    console.error('Falha ao ler db.json, recriando base:', error.message);
-    db.data = { products: [], users: [], vendas: [], associados: [], vendaCounter: 1, lastSaleId: null };
-    ensureDbShape();
-    shouldPersist = true;
-  }
-
   if (pgPool) {
-    try {
-      const pgState = await loadStateFromPg();
-      if (pgState && typeof pgState === 'object') {
-        db.data = pgState;
-        shouldPersist = true;
+    const pgState = await loadStateFromPg();
+    if (pgState && typeof pgState === 'object') {
+      db.data = pgState;
+    } else {
+      try {
+        await db.read();
+      } catch (error) {
+        console.error('Falha ao ler o estado legado do arquivo:', error.message);
+        db.data = { products: [], users: [], vendas: [], associados: [], vendaCounter: 1, lastSaleId: null };
       }
+      shouldPersist = true;
+    }
+  } else {
+    try {
+      await db.read();
     } catch (error) {
-      console.error('Falha ao carregar estado do PostgreSQL:', error.message);
+      console.error('Falha ao ler db.json, recriando base:', error.message);
+      db.data = { products: [], users: [], vendas: [], associados: [], vendaCounter: 1, lastSaleId: null };
+      shouldPersist = true;
     }
   }
 
@@ -1868,18 +1889,22 @@ app.use('/api/products', requireLogin, productsRouter);
 
 // Error handler final: evita tela em branco/500 sem resposta amigável.
 app.use((error, req, res, next) => {
-  console.error('Erro não tratado:', error);
+  console.error(`Erro não tratado em ${req.method} ${req.originalUrl}:`, error);
+  if (res.headersSent) {
+    return next(error);
+  }
   if (req.path.startsWith('/api/')) {
     return res.status(500).json({ error: 'Erro interno do servidor' });
   }
-  // Evita loop de redirecionamento quando o próprio /login.html falha.
-  if (req.path === '/login.html') {
-    return res.status(500).send('Erro interno do servidor. Tente novamente em instantes.');
-  }
-  return res.redirect('/login.html');
+  return res.status(500).send('Erro interno do servidor. Tente novamente em instantes.');
 });
 
-app.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
-  startAutoBackupScheduler();
+dbInitialization.then(() => {
+  app.listen(PORT, () => {
+    console.log(`Server listening on port ${PORT}`);
+    startAutoBackupScheduler();
+  });
+}).catch((error) => {
+  console.error('Erro crítico na inicialização do banco:', error.message);
+  process.exitCode = 1;
 });
